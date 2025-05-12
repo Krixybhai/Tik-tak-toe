@@ -1,0 +1,276 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Toe</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #fff;
+    }h1 {
+  margin-bottom: 10px;
+  font-size: 32px;
+  font-weight: 800;
+  text-shadow: 0 0 5px rgba(255,255,255,0.6);
+}
+
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 80px);
+  grid-template-rows: repeat(3, 80px);
+  gap: 5px;
+  margin: 20px 0;
+}
+
+.cell {
+  width: 80px;
+  height: 80px;
+  background-color: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  font-weight: 900;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  box-shadow: 0 0 10px transparent;
+}
+
+.cell.x {
+  color: #00ffe7;
+  text-shadow: 0 0 10px #00ffe7, 0 0 20px #00ffe7, 0 0 30px #00ffe7;
+  box-shadow: 0 0 15px #00ffe7 inset;
+}
+
+.cell.o {
+  color: #ffd700;
+  text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700, 0 0 30px #ffd700;
+  box-shadow: 0 0 15px #ffd700 inset;
+}
+
+.cell.win {
+  animation: pop 0.5s ease-in-out forwards;
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+.win-line {
+  position: absolute;
+  height: 5px;
+  background: #fff;
+  border-radius: 5px;
+  z-index: 1;
+  transform-origin: left center;
+}
+
+.mode-select, .level-select {
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+
+select, button {
+  padding: 10px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  margin: 5px;
+  cursor: pointer;
+}
+
+.status {
+  margin-top: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  text-shadow: 0 0 3px rgba(255,255,255,0.4);
+}
+
+  </style>
+</head>
+<body>
+  <h1>Tic Tac Toe</h1>
+  <div class="game-container">
+    <div class="mode-select">
+      <label>Game Mode:</label>
+      <select id="gameMode">
+        <option value="friend">Play with Friend</option>
+        <option value="computer">Play with Computer</option>
+      </select>
+    </div>
+    <div class="level-select" id="levelContainer" style="display: none;">
+      <label>Difficulty:</label>
+      <select id="difficulty">
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+    </div>
+    <div class="board" id="board"></div>
+    <button onclick="restartGame()">Restart</button>
+    <div class="status" id="status"></div>
+  </div><audio id="placeSound" src="https://www.soundjay.com/button/beep-07.wav"></audio> <audio id="winSound" src="https://www.soundjay.com/button/beep-08b.wav"></audio> <audio id="drawSound" src="https://www.soundjay.com/button/beep-10.wav"></audio>
+
+  <script>
+    const board = document.getElementById('board');
+    const statusText = document.getElementById('status');
+    const gameMode = document.getElementById('gameMode');
+    const levelContainer = document.getElementById('levelContainer');
+    const difficultySelect = document.getElementById('difficulty');
+    const placeSound = document.getElementById('placeSound');
+    const winSound = document.getElementById('winSound');
+    const drawSound = document.getElementById('drawSound');
+
+    let cells = [];
+    let currentPlayer = 'x';
+    let gameActive = true;
+    let isAgainstComputer = false;
+
+    gameMode.addEventListener('change', () => {
+      isAgainstComputer = gameMode.value === 'computer';
+      levelContainer.style.display = isAgainstComputer ? 'block' : 'none';
+      restartGame();
+    });
+
+    function createBoard() {
+      board.innerHTML = '';
+      cells = [];
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        board.appendChild(cell);
+        cells.push(cell);
+        cell.addEventListener('click', () => handleCellClick(i));
+      }
+    }
+
+    function handleCellClick(index) {
+      if (!gameActive || cells[index].textContent !== '') return;
+      placeMark(index, currentPlayer);
+      placeSound.play();
+      if (checkWinner(currentPlayer)) return;
+      if (checkDraw()) return;
+      currentPlayer = currentPlayer === 'x' ? 'o' : 'x';
+      if (isAgainstComputer && currentPlayer === 'o') {
+        setTimeout(() => computerMove(), 500);
+      }
+    }
+
+    function placeMark(index, player) {
+      cells[index].textContent = player.toUpperCase();
+      cells[index].classList.add(player);
+    }
+
+    function computerMove() {
+      const difficulty = difficultySelect.value;
+      let move;
+      if (difficulty === 'easy') move = randomMove();
+      else if (difficulty === 'medium') move = mediumMove();
+      else move = bestMove('o');
+      if (move != null) {
+        handleCellClick(move);
+      }
+    }
+
+    function randomMove() {
+      const emptyIndices = cells.map((c, i) => c.textContent === '' ? i : null).filter(i => i != null);
+      return emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+    }
+
+    function mediumMove() {
+      return randomMove(); // You can make a smarter medium logic here
+    }
+
+    function bestMove(player) {
+      const opponent = player === 'x' ? 'o' : 'x';
+      for (let i = 0; i < 9; i++) {
+        if (cells[i].textContent === '') {
+          cells[i].textContent = player.toUpperCase();
+          if (checkWinner(player, true)) {
+            cells[i].textContent = '';
+            return i;
+          }
+          cells[i].textContent = '';
+        }
+      }
+      return randomMove();
+    }
+
+    function checkWinner(player, simulation = false) {
+      const winPatterns = [
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
+      ];
+
+      for (let pattern of winPatterns) {
+        if (pattern.every(i => cells[i].textContent.toLowerCase() === player)) {
+          if (!simulation) {
+            pattern.forEach(i => cells[i].classList.add('win'));
+            drawWinLine(pattern);
+            statusText.textContent = `${player.toUpperCase()} Wins!`;
+            gameActive = false;
+            winSound.play();
+          }
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function drawWinLine(pattern) {
+      const positions = pattern.map(i => cells[i].getBoundingClientRect());
+      const boardRect = board.getBoundingClientRect();
+      const x1 = positions[0].left + positions[0].width / 2 - boardRect.left;
+      const y1 = positions[0].top + positions[0].height / 2 - boardRect.top;
+      const x2 = positions[2].left + positions[2].width / 2 - boardRect.left;
+      const y2 = positions[2].top + positions[2].height / 2 - boardRect.top;
+      const length = Math.hypot(x2 - x1, y2 - y1);
+      const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+
+      const line = document.createElement('div');
+      line.classList.add('win-line');
+      line.style.width = `${length}px`;
+      line.style.transform = `translate(${x1}px, ${y1}px) rotate(${angle}deg)`;
+      board.appendChild(line);
+    }
+
+    function checkDraw() {
+      if (cells.every(c => c.textContent !== '')) {
+        statusText.textContent = "It's a draw!";
+        gameActive = false;
+        drawSound.play();
+        return true;
+      }
+      return false;
+    }
+
+    function restartGame() {
+      currentPlayer = 'x';
+      gameActive = true;
+      statusText.textContent = '';
+      createBoard();
+    }
+
+    restartGame();
+  </script></body>
+</html>
